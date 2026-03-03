@@ -29,6 +29,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
           ./Cargo.lock
           ./crates
           ./benches
+          ./templates
+          ./firmware
         ]
         ++ (lib.optionals finalAttrs.doCheck [
           ./tests
