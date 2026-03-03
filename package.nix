@@ -1,61 +1,26 @@
 {
-  makeRustPlatform,
-  rustToolchain,
+  stdenv,
   lib,
-  zeroclaw-web,
-  removeReferencesTo,
+  autoPatchelfHook,
 }:
-let
-  rustPlatform = makeRustPlatform {
-    cargo = rustToolchain;
-    rustc = rustToolchain;
-  };
-in
-rustPlatform.buildRustPackage (finalAttrs: {
+stdenv.mkDerivation {
   pname = "sinh-x-zeroclaw";
   version = "0.2.0";
 
-  src =
-    let
-      fs = lib.fileset;
-    in
-    fs.toSource {
-      root = ./.;
-      fileset = fs.unions (
-        [
-          ./src
-          ./build.rs
-          ./Cargo.toml
-          ./Cargo.lock
-          ./crates
-          ./benches
-          ./templates
-          ./firmware
-        ]
-        ++ (lib.optionals finalAttrs.doCheck [
-          ./tests
-          ./test_helpers
-        ])
-      );
-    };
-  prePatch = ''
-    mkdir web
-    ln -s ${zeroclaw-web} web/dist
+  src = ./target/release;
+
+  nativeBuildInputs = [ autoPatchelfHook ];
+  buildInputs = [ stdenv.cc.cc.lib ];
+
+  dontUnpack = true;
+  dontBuild = true;
+
+  installPhase = ''
+    install -Dm755 $src/zeroclaw $out/bin/zeroclaw
   '';
 
-  cargoLock.lockFile = ./Cargo.lock;
-
-  nativeBuildInputs = [
-    removeReferencesTo
-  ];
-
-  # Since tests run in the official pipeline, no need to run them in the Nix sandbox.
-  # Can be changed by consumers using `overrideAttrs` on this package.
-  doCheck = false;
-
-  # Some dependency causes Nix to detect the Rust toolchain to be a runtime dependency
-  # of zeroclaw. This manually removes any reference to the toolchain.
-  postFixup = ''
-    find "$out" -type f -exec remove-references-to -t ${rustToolchain} '{}' +
-  '';
-})
+  meta = with lib; {
+    description = "ZeroClaw autonomous agent runtime";
+    mainProgram = "zeroclaw";
+  };
+}
