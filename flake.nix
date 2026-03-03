@@ -41,6 +41,7 @@
           inputsFrom = [ pkgs.sinh-x-zeroclaw ];
           packages = [
             pkgs.rust-analyzer
+            pkgs.sinh-x-zeroclaw
           ];
         };
       }
