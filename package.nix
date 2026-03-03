@@ -24,6 +24,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
       fileset = fs.unions (
         [
           ./src
+          ./build.rs
           ./Cargo.toml
           ./Cargo.lock
           ./crates
