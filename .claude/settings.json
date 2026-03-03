@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(~/.zeroclaw/config.toml)",
+      "Edit(~/.zeroclaw/config.toml)",
+      "Bash(cat ~/.zeroclaw/config.toml)",
+      "Bash(head ~/.zeroclaw/config.toml)",
+      "Bash(tail ~/.zeroclaw/config.toml)"
+    ]
+  }
+}
