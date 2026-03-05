@@ -58,6 +58,7 @@ Last refreshed: **February 28, 2026**.
 - [operations-runbook.md](operations-runbook.md)
 - [operations/connectivity-probes-runbook.md](operations/connectivity-probes-runbook.md)
 - [release-process.md](release-process.md)
+- [operations/sinh-x-release-runbook.md](operations/sinh-x-release-runbook.md)
 - [troubleshooting.md](troubleshooting.md)
 - [network-deployment.md](network-deployment.md)
 - [mattermost-setup.md](mattermost-setup.md)

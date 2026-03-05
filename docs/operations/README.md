@@ -7,6 +7,7 @@ For operators running ZeroClaw in persistent or production-like environments.
 - Day-2 runbook: [../operations-runbook.md](../operations-runbook.md)
 - Connectivity probes runbook: [connectivity-probes-runbook.md](connectivity-probes-runbook.md)
 - Release runbook: [../release-process.md](../release-process.md)
+- sinh-x fork release: [sinh-x-release-runbook.md](sinh-x-release-runbook.md)
 - Troubleshooting matrix: [../troubleshooting.md](../troubleshooting.md)
 - Safe network/gateway deployment: [../network-deployment.md](../network-deployment.md)
 - Mattermost setup (channel-specific): [../mattermost-setup.md](../mattermost-setup.md)
