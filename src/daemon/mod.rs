@@ -88,6 +88,11 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
     }
 
     if config.cron.enabled {
+        // Auto-register nightly consolidation job if it doesn't exist
+        if let Err(e) = ensure_consolidation_job(&config) {
+            tracing::warn!("Failed to auto-register consolidation job: {e}");
+        }
+
         let scheduler_cfg = config.clone();
         handles.push(spawn_component_supervisor(
             "scheduler",
@@ -366,6 +371,25 @@ fn validate_heartbeat_channel_config(config: &Config, channel: &str) -> Result<(
         other => anyhow::bail!("unsupported heartbeat.target channel: {other}"),
     }
 
+    Ok(())
+}
+
+/// Register the nightly memory consolidation cron job if not already present.
+fn ensure_consolidation_job(config: &Config) -> Result<()> {
+    let existing = crate::cron::list_jobs(config).unwrap_or_default();
+    let already_exists = existing.iter().any(|j| {
+        j.name
+            .as_deref()
+            .is_some_and(|n| n == crate::cron::consolidation::CONSOLIDATION_JOB_NAME)
+    });
+
+    if already_exists {
+        tracing::debug!("Nightly consolidation job already registered");
+        return Ok(());
+    }
+
+    let job = crate::cron::consolidation::create_consolidation_job(config)?;
+    tracing::info!("Auto-registered nightly consolidation job (id={})", job.id);
     Ok(())
 }
 

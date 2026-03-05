@@ -216,6 +216,11 @@ impl SqliteMemory {
             )?;
         }
 
+        // Migration: add created_at index for efficient time-range queries
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at);",
+        )?;
+
         Ok(())
     }
 
@@ -774,6 +779,77 @@ impl Memory for SqliteMemory {
                     }
                     results.push(entry);
                 }
+            }
+
+            Ok(results)
+        })
+        .await?
+    }
+
+    async fn recent(
+        &self,
+        since_rfc3339: &str,
+        limit: usize,
+        category: Option<&MemoryCategory>,
+        session_id: Option<&str>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        let conn = self.conn.clone();
+        let since = since_rfc3339.to_string();
+        let category = category.cloned();
+        let sid = session_id.map(String::from);
+        #[allow(clippy::cast_possible_truncation)]
+        let limit_i64 = limit as i64;
+
+        tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<MemoryEntry>> {
+            let conn = conn.lock();
+            let mut results = Vec::new();
+
+            let row_mapper = |row: &rusqlite::Row| -> rusqlite::Result<MemoryEntry> {
+                Ok(MemoryEntry {
+                    id: row.get(0)?,
+                    key: row.get(1)?,
+                    content: row.get(2)?,
+                    category: Self::str_to_category(&row.get::<_, String>(3)?),
+                    timestamp: row.get(4)?,
+                    session_id: row.get(5)?,
+                    score: None,
+                })
+            };
+
+            // Build query dynamically based on filter combination
+            let mut sql = String::from(
+                "SELECT id, key, content, category, created_at, session_id FROM memories
+                 WHERE created_at >= ?1",
+            );
+            let cat_str = category.as_ref().map(Self::category_to_str);
+            let mut param_idx = 2;
+            if cat_str.is_some() {
+                write!(sql, " AND category = ?{param_idx}").unwrap();
+                param_idx += 1;
+            }
+            if sid.is_some() {
+                write!(sql, " AND session_id = ?{param_idx}").unwrap();
+                param_idx += 1;
+            }
+            write!(sql, " ORDER BY created_at DESC LIMIT ?{param_idx}").unwrap();
+
+            let mut stmt = conn.prepare(&sql)?;
+
+            // Build dynamic parameter list
+            let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(since)];
+            if let Some(ref cat) = cat_str {
+                params_vec.push(Box::new(cat.clone()));
+            }
+            if let Some(ref s) = sid {
+                params_vec.push(Box::new(s.clone()));
+            }
+            params_vec.push(Box::new(limit_i64));
+
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+                params_vec.iter().map(|p| p.as_ref()).collect();
+            let rows = stmt.query_map(param_refs.as_slice(), row_mapper)?;
+            for row in rows {
+                results.push(row?);
             }
 
             Ok(results)

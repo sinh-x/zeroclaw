@@ -90,6 +90,25 @@ pub trait Memory: Send + Sync {
     /// Count total memories
     async fn count(&self) -> anyhow::Result<usize>;
 
+    /// Retrieve memories created since a given RFC 3339 timestamp.
+    ///
+    /// Default implementation falls back to `list()` with client-side filtering.
+    /// Backends with efficient time-range queries (e.g. SQLite) should override.
+    async fn recent(
+        &self,
+        since_rfc3339: &str,
+        limit: usize,
+        category: Option<&MemoryCategory>,
+        session_id: Option<&str>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        let all = self.list(category, session_id).await?;
+        Ok(all
+            .into_iter()
+            .filter(|e| e.timestamp.as_str() >= since_rfc3339)
+            .take(limit)
+            .collect())
+    }
+
     /// Health check
     async fn health_check(&self) -> bool;
 
