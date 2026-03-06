@@ -1,30 +1,42 @@
 {
-  stdenv,
   lib,
-  autoPatchelfHook,
-  fetchurl,
+  rustPlatform,
+  pkg-config,
+  openssl,
+  git,
 }:
-stdenv.mkDerivation {
+rustPlatform.buildRustPackage {
   pname = "sinh-x-zeroclaw";
   version = "0.2.0+sinh.1";
 
-  src = fetchurl {
-    url = "https://github.com/sinh-x/zeroclaw/releases/download/v0.2.0%2Bsinh.1/zeroclaw";
-    hash = "sha256-BmORs+8GDRrxMa20s5zjFVPJuF5wDL3ls+jsCkD+iXQ=";
-  };
+  src = lib.cleanSource ./.;
 
-  nativeBuildInputs = [ autoPatchelfHook ];
-  buildInputs = [ stdenv.cc.cc.lib ];
+  cargoHash = "sha256-LaWcHkOAvqRW5S/Ay8SixzAKqwRdqo0gM021dqlG5SM=";
 
-  dontUnpack = true;
-  dontBuild = true;
+  nativeBuildInputs = [
+    pkg-config
+    git
+  ];
 
-  installPhase = ''
-    install -Dm755 $src $out/bin/zeroclaw
+  buildInputs = [
+    openssl
+  ];
+
+  # build.rs reads git SHA — provide a fallback in the Nix sandbox
+  ZEROCLAW_GIT_SHORT_SHA = "nix";
+
+  # Many tests expect a writable $HOME (tilde expansion, config persistence, etc.)
+  preCheck = ''
+    export HOME="$(mktemp -d)"
   '';
+
+  # Only build the main zeroclaw binary
+  cargoBuildFlags = [ "--package" "zeroclaw" ];
+  cargoTestFlags = [ "--package" "zeroclaw" ];
 
   meta = with lib; {
     description = "ZeroClaw autonomous agent runtime";
     mainProgram = "zeroclaw";
+    license = with licenses; [ mit asl20 ];
   };
 }

@@ -398,17 +398,27 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
     use tempfile::TempDir;
 
+    /// Resolve a shebang line that works in sandboxed builds (e.g. Nix)
+    /// where `/usr/bin/env` may not exist.
+    fn bash_shebang() -> String {
+        which::which("bash")
+            .map(|p| format!("#!{}", p.display()))
+            .unwrap_or_else(|_| "#!/usr/bin/env bash".to_string())
+    }
+
     fn write_fake_lucid_script(dir: &Path) -> String {
         let script_path = dir.join("fake-lucid.sh");
-        let script = r#"#!/usr/bin/env bash
+        let shebang = bash_shebang();
+        let script = format!(
+            r#"{shebang}
 set -euo pipefail
 
-if [[ "${1:-}" == "store" ]]; then
-  echo '{"success":true,"id":"mem_1"}'
+if [[ "${{1:-}}" == "store" ]]; then
+  echo '{{"success":true,"id":"mem_1"}}'
   exit 0
 fi
 
-if [[ "${1:-}" == "context" ]]; then
+if [[ "${{1:-}}" == "context" ]]; then
   cat <<'EOF'
 <lucid-context>
 Auth context snapshot
@@ -421,7 +431,8 @@ fi
 
 echo "unsupported command" >&2
 exit 1
-"#;
+"#
+        );
 
         fs::write(&script_path, script).unwrap();
         let mut perms = fs::metadata(&script_path).unwrap().permissions();
@@ -432,15 +443,17 @@ exit 1
 
     fn write_delayed_lucid_script(dir: &Path) -> String {
         let script_path = dir.join("delayed-lucid.sh");
-        let script = r#"#!/usr/bin/env bash
+        let shebang = bash_shebang();
+        let script = format!(
+            r#"{shebang}
 set -euo pipefail
 
-if [[ "${1:-}" == "store" ]]; then
-  echo '{"success":true,"id":"mem_1"}'
+if [[ "${{1:-}}" == "store" ]]; then
+  echo '{{"success":true,"id":"mem_1"}}'
   exit 0
 fi
 
-if [[ "${1:-}" == "context" ]]; then
+if [[ "${{1:-}}" == "context" ]]; then
   # Simulate a cold start that is slower than 120ms but below the 500ms timeout.
   sleep 0.2
   cat <<'EOF'
@@ -453,7 +466,8 @@ fi
 
 echo "unsupported command" >&2
 exit 1
-"#;
+"#
+        );
 
         fs::write(&script_path, script).unwrap();
         let mut perms = fs::metadata(&script_path).unwrap().permissions();
@@ -465,8 +479,9 @@ exit 1
     fn write_probe_lucid_script(dir: &Path, marker_path: &Path) -> String {
         let script_path = dir.join("probe-lucid.sh");
         let marker = marker_path.display().to_string();
+        let shebang = bash_shebang();
         let script = format!(
-            r#"#!/usr/bin/env bash
+            r#"{shebang}
 set -euo pipefail
 
 if [[ "${{1:-}}" == "store" ]]; then
@@ -625,8 +640,9 @@ exit 1
     fn write_failing_lucid_script(dir: &Path, marker_path: &Path) -> String {
         let script_path = dir.join("failing-lucid.sh");
         let marker = marker_path.display().to_string();
+        let shebang = bash_shebang();
         let script = format!(
-            r#"#!/usr/bin/env bash
+            r#"{shebang}
 set -euo pipefail
 
 if [[ "${{1:-}}" == "store" ]]; then
